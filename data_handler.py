@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import socket
 import sys
 
 
@@ -56,8 +57,6 @@ def main():
                 row_result = list(data[i]) + list(data[j])
                 results.append(row_result)
 
-
-
     fields = 'route_id,step_id,start_lon,start_lat,start_time,end_lon,end_lat,end_time,travel_mode,age_group,foreign'.split(',')
     prefixes = ('parent_','child_')
     header_fields = [prefix + field
@@ -72,7 +71,6 @@ def main():
     with open(output_path, 'wb') as fp:
         fp.write((header + '\n').encode())
         np.savetxt(fp, np.array(results), fmt='%.4f')
-
 
 if __name__ == '__main__':
     main()
