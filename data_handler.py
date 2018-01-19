@@ -29,9 +29,12 @@ class Node:
                 result += grand_children
         return result
 
+    def is_child_to(self, parent):
+        return parent.x1 <= self.x1 and \
+            self.x2 <= parent.x2
+
     def insert_node(self, new_node):
-        if self.x1 <= new_node.x1 and \
-                        new_node.x2 <= self.x2:
+        if new_node.is_child_to(self):
             need_append = True
             for child in self.children:
                 insert_result = child.insert_node(new_node)
@@ -42,6 +45,12 @@ class Node:
                 new_node.parent = self
                 self.children.append(new_node)
             return True
+        if self.is_child_to(new_node):
+            self.parent.children.remove(self)
+            new_node.children.append(self)
+            parent = self.parent
+            self.parent = new_node
+            return parent.insert_node(new_node)
         return False
 
     def print_node(self, tabs=0):
