@@ -1,3 +1,4 @@
+from collections import defaultdict
 import numpy as np
 import sys
 
@@ -12,6 +13,58 @@ END_LON = 5
 END_LAT = 6
 
 
+class Node:
+    def __init__(self, index=-1, x1=0, x2=90, parent_node=None):
+        self.index = index
+        self.x1 = x1
+        self.x2 = x2
+        self.parent = parent_node
+        self.children = []
+
+    def get_all_children(self):
+        result = list(self.children)
+        for child in self.children:
+            grand_children = child.get_all_children()
+            if len(grand_children) > 0:
+                result += grand_children
+        return result
+
+    def insert_node(self, new_node):
+        if self.x1 <= new_node.x1 and \
+                        new_node.x2 <= self.x2:
+            need_append = True
+            for child in self.children:
+                insert_result = child.insert_node(new_node)
+                if insert_result:
+                    need_append = False
+                    break
+            if need_append:
+                new_node.parent = self
+                self.children.append(new_node)
+            return True
+        return False
+
+    def print_node(self, tabs=0):
+        s = ' ' * tabs
+        print(s, self)
+        for child in self.children:
+            child.print_node(tabs + 2)
+
+    def write_output(self, data):
+        result = []
+        if self.index != -1:
+            for child in self.get_all_children():
+                row_result = list(data[self.index]) + list(data[child.index])
+                result.append(row_result)
+        for child in self.children:
+            child_result = child.write_output(data)
+            if len(child_result) > 0:
+                result += child_result
+        return result
+
+    def __str__(self):
+        return str('{}; x1 = {}; x2 = {}'.format(self.index, self.x1, self.x2))
+
 def main():
     if len(sys.argv) == 1:
         return
@@ -20,8 +73,8 @@ def main():
     input_path = '{0}/{1}'.format(FOLDER_INPUT_NAME, filename)
     data = np.genfromtxt(input_path, skip_header=1, delimiter=',')
 
-    coordinates = []
-    for row in data:
+    output = defaultdict(Node)
+    for i, row in enumerate(data):
         x1 = row[START_LAT]
         y1 = row[START_LON]
         x2 = row[END_LAT]
@@ -36,22 +89,16 @@ def main():
             b = (x2 - x1) / (y1 - y2)
         c = -x1 - b * y1
 
-        coordinates.append([x1, y1, x2, y2, b, c])
+        new_node = Node(i, x1, x2)
+        key = (b, c)
+        root = output[key]
+        root.insert_node(new_node)
 
-    np_coordinates = np.array(coordinates, dtype=np.float_)
-
-    results = []
-    for i, parent_row in enumerate(np_coordinates):
-        for j, child_row in enumerate(np_coordinates):
-            if i == j:
-                continue
-            if parent_row[-2] != child_row[-2] or \
-                parent_row[-1] != child_row[-1]:
-                continue
-            if parent_row[0] <= child_row[0] and \
-                parent_row[2] >= child_row[2]:
-                row_result = list(data[i]) + list(data[j])
-                results.append(row_result)
+    result = []
+    for k, v in output.items():
+        node_result = v.write_output(data)
+        if len(node_result) > 0:
+            result += node_result
 
     fields = 'route_id,step_id,start_lon,start_lat,start_time,end_lon,end_lat,end_time,travel_mode,age_group,foreign'.split(',')
     prefixes = ('parent_','child_')
@@ -63,7 +110,8 @@ def main():
     output_path = '{0}/{1}'.format(FOLDER_OUTPUT_NAME, filename)
     with open(output_path, 'wb') as fp:
         fp.write((header + '\n').encode())
-        np.savetxt(fp, np.array(results), fmt='%.4f')
+        np_result = np.array(result)
+        np.savetxt(fp, np_result, fmt='%.4f')
 
 if __name__ == '__main__':
     main()
