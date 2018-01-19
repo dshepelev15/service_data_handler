@@ -1,6 +1,4 @@
 import numpy as np
-import os
-import socket
 import sys
 
 
@@ -15,7 +13,6 @@ END_LAT = 6
 
 
 def main():
-
     if len(sys.argv) == 1:
         return
 
@@ -33,8 +30,7 @@ def main():
         if x1 > x2:
             x1, y1, x2, y2 = x2, y2, x1, y1
 
-        # уравнение Ax + By + C = 0
-        # a = 1
+        # уравнение Ax + By + C = 0, a = 1
         b = 0
         if y1 != y2:
             b = (x2 - x1) / (y1 - y2)
@@ -63,9 +59,6 @@ def main():
                      for prefix in prefixes
                      for field in fields]
     header = ','.join(header_fields)
-
-    if not os.path.exists(FOLDER_OUTPUT_NAME):
-        os.makedirs(FOLDER_OUTPUT_NAME)
 
     output_path = '{0}/{1}'.format(FOLDER_OUTPUT_NAME, filename)
     with open(output_path, 'wb') as fp:

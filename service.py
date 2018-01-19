@@ -2,11 +2,19 @@ import os
 import time
 
 FOLDER_INPUT_NAME = 'csv_input'
+FOLDER_OUTPUT_NAME = 'csv_output'
 
-runned_files = []
+if not os.path.exists(FOLDER_OUTPUT_NAME):
+    os.makedirs(FOLDER_OUTPUT_NAME)
+
+runned_files = [
+    file
+    for file in os.listdir(FOLDER_OUTPUT_NAME)
+        if os.path.isfile('{0}/{1}'.format(FOLDER_OUTPUT_NAME, file))
+]
 
 while True:
-    files = os.listdir('csv_input')
+    files = os.listdir(FOLDER_INPUT_NAME)
     for file in files:
         file_path = '{0}/{1}'.format(FOLDER_INPUT_NAME, file)
         if os.path.isfile(file_path) and \
