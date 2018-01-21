@@ -14,11 +14,11 @@ END_LAT = 6
 
 
 class Node:
-    def __init__(self, index=-1, x1=0, x2=90, parent_node=None):
+    def __init__(self, index=-1, x1=0, x2=90):
         self.index = index
         self.x1 = x1
         self.x2 = x2
-        self.parent = parent_node
+        self.parents = []
         self.children = []
 
     def get_all_children(self):
@@ -27,6 +27,16 @@ class Node:
             grand_children = child.get_all_children()
             if len(grand_children) > 0:
                 result += grand_children
+        return result
+
+    def find_all_child(self, new_node):
+        result = []
+        if self.is_child_to(new_node):
+            self.parents.append(new_node)
+            result.append(self)
+        else:
+            for child in self.children:
+                result += child.find_available_child(new_node)
         return result
 
     def is_child_to(self, parent):
@@ -40,17 +50,22 @@ class Node:
                 insert_result = child.insert_node(new_node)
                 if insert_result:
                     need_append = False
-                    break
             if need_append:
-                new_node.parent = self
+                new_node.parents.append(self)
+                children_nodes_for_new_node = []
+                for child in self.children:
+                    children_nodes_for_new_node += child.find_all_child(new_node)
+                new_node.children += children_nodes_for_new_node
                 self.children.append(new_node)
             return True
         if self.is_child_to(new_node):
-            self.parent.children.remove(self)
             new_node.children.append(self)
-            parent = self.parent
-            self.parent = new_node
-            return parent.insert_node(new_node)
+            parents = self.parents
+            self.parents = [new_node]
+            for parent in parents:
+                parent.children.remove(self)
+                parent.insert_node(new_node)
+            return True
         return False
 
     def print_node(self, tabs=0):
@@ -89,8 +104,6 @@ def main():
         x2 = row[END_LAT]
         y2 = row[END_LON]
 
-        if x1 > x2:
-            x1, y1, x2, y2 = x2, y2, x1, y1
 
         # уравнение Ax + By + C = 0, a = 1
         b = 0
