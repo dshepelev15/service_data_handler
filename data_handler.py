@@ -1,4 +1,5 @@
 from collections import defaultdict
+import math
 import numpy as np
 import sys
 
@@ -12,12 +13,16 @@ START_LAT = 3
 END_LON = 5
 END_LAT = 6
 
+RADIUS = 6371000
+PI = 3.1415926
 
 class Node:
-    def __init__(self, index=-1, x1=0, x2=90):
+    def __init__(self, index=-1, start_longitude=0, start_latitude=0, end_longitude=0, end_latitude=0):
         self.index = index
-        self.x1 = x1
-        self.x2 = x2
+        self.start_longitude = start_longitude
+        self.start_latitude = start_latitude
+        self.end_longitude = end_longitude
+        self.end_latitude = end_latitude
         self.parents = []
         self.children = []
 
@@ -40,8 +45,8 @@ class Node:
         return result
 
     def is_child_to(self, parent):
-        return parent.x1 <= self.x1 and \
-            self.x2 <= parent.x2
+        return parent.start <= self.start and \
+            self.end <= parent.end
 
     def insert_node(self, new_node):
         if new_node.is_child_to(self):
@@ -89,6 +94,41 @@ class Node:
     def __str__(self):
         return str('{}; x1 = {}; x2 = {}'.format(self.index, self.x1, self.x2))
 
+
+class RootNode(Node):
+    def __init__(self):
+        super(RootNode, self).__init__()
+        self.start = 0
+        self.end = 360
+
+    def calculate_degrees(self, long, lat):
+        """ Метод для вычисления угла между фиксированной точкой и любой точкой, лежащей в этой плоскости """
+        delta_longitude = abs(long - self.fixed_longitude)
+        delta_latitude = abs(lat - self.fixed_latitude)
+        k = PI / 180 # для перевода градусов в радианы
+        # теорема косинусов для сферических координат
+        cos_value = math.cos(delta_latitude * k) * math.cos(delta_longitude * k)
+        alpha = math.acos(cos_value)
+        return alpha
+
+    def insert_node(self, new_node):
+        # если это первая Node, то нужно зафиксировать стартовую точку как начало координат
+        if len(self.children) == 0:
+            self.fixed_longitude = new_node.start_longitude
+            self.fixed_latitude = new_node.start_latitude
+        # запоминаем отклонения от фиксированной точки
+        new_node.start = self.calculate_degrees(new_node.start_longitude, new_node.start_latitude)
+        new_node.end = self.calculate_degrees(new_node.end_longitude, new_node.end_latitude)
+        super(RootNode, self).insert_node(new_node)
+
+
+def calculate_spherical_coordinates(phi, teta, r=RADIUS):
+    x = r * math.sin(teta) * math.cos(phi)
+    y = r * math.sin(teta) * math.sin(phi)
+    z = r * math.cos(teta)
+    return (x, y, z)
+
+
 def main():
     if len(sys.argv) == 1:
         return
@@ -97,23 +137,40 @@ def main():
     input_path = '{0}/{1}'.format(FOLDER_INPUT_NAME, filename)
     data = np.genfromtxt(input_path, skip_header=1, delimiter=',')
 
-    output = defaultdict(Node)
+    output = defaultdict(RootNode)
     for i, row in enumerate(data):
-        x1 = row[START_LAT]
-        y1 = row[START_LON]
-        x2 = row[END_LAT]
-        y2 = row[END_LON]
+        start_latitude = row[START_LAT]
+        start_longitude = row[START_LON]
+        end_latitude = row[END_LAT]
+        end_longitude = row[END_LON]
 
+        # перейдём к сферическим координатами и найдём x,y,z, зная углы phi, teta
+        # phi - это значение longitude
+        # teta - это 90 - значение latitude
+        phi = start_longitude
+        teta = 90 - start_latitude
+        start_x, start_y, start_z = calculate_spherical_coordinates(phi, teta)
 
-        # уравнение Ax + By + C = 0, a = 1
-        b = 0
-        if y1 != y2:
-            b = (x2 - x1) / (y1 - y2)
-        c = -x1 - b * y1
+        phi = end_longitude
+        teta = 90 - end_latitude
+        end_x, end_y, end_z = calculate_spherical_coordinates(phi, teta)
 
-        new_node = Node(i, x1, x2)
-        key = (b, c)
+        # строим плоскость по 3 точкам start, end и O - начальная точка с координатами 0,0,0
+        # Уравнение плоскости A(x-x0) + B(y-y0) + C(z-z0) = 0
+        # x0 = y0 = z0 = 0
+        a = start_y * end_z - end_y * start_z
+        b = start_x * end_z - end_x * start_z
+        c = start_x * end_y - end_x * start_y
+
+        # Пусть все коэффициент перед X будет положительным
+        if a < 0:
+            a *= -1
+            b *= -1
+            c *= -1
+
+        key = (a, b, c)
         root = output[key]
+        new_node = Node(i, start_longitude, start_latitude, end_longitude, end_latitude)
         root.insert_node(new_node)
 
     result = []
