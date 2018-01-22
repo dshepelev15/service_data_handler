@@ -17,7 +17,7 @@ RADIUS = 6371000
 PI = 3.1415926
 
 class Node:
-    def __init__(self, index=-1, start_longitude=0, start_latitude=0, end_longitude=0, end_latitude=0):
+    def __init__(self, index=-1, start_longitude=0, start_latitude=0, end_longitude=0, end_latitude=0, start=0, end=0, direction=True):
         self.index = index
         self.start_longitude = start_longitude
         self.start_latitude = start_latitude
@@ -25,6 +25,9 @@ class Node:
         self.end_latitude = end_latitude
         self.parents = []
         self.children = []
+        self.start = start
+        self.end = end
+        self.direction = direction
 
     def get_all_children(self):
         result = list(self.children)
@@ -45,8 +48,15 @@ class Node:
         return result
 
     def is_child_to(self, parent):
-        return parent.start <= self.start and \
-            self.end <= parent.end
+        # не одно направление движения
+        if self.direction != parent.direction:
+            return False
+        return parent.direction and \
+            parent.start <= self.start and \
+            self.end <= parent.end or \
+            not parent.direction and \
+            self.start <= parent.start and \
+            parent.end <= self.end
 
     def insert_node(self, new_node):
         if new_node.is_child_to(self):
@@ -95,6 +105,12 @@ class Node:
         return str('{}; x1 = {}; x2 = {}'.format(self.index, self.x1, self.x2))
 
 
+def sign(x):
+    if x > 0: return 1
+    elif x < 0: return -1
+    return x
+
+
 class RootNode(Node):
     def __init__(self):
         super(RootNode, self).__init__()
@@ -103,12 +119,13 @@ class RootNode(Node):
 
     def calculate_degrees(self, long, lat):
         """ Метод для вычисления угла между фиксированной точкой и любой точкой, лежащей в этой плоскости """
-        delta_longitude = abs(long - self.fixed_longitude)
-        delta_latitude = abs(lat - self.fixed_latitude)
+        delta_longitude = long - self.fixed_longitude
+        delta_latitude = lat - self.fixed_latitude
         k = PI / 180 # для перевода градусов в радианы
         # теорема косинусов для сферических координат
         cos_value = math.cos(delta_latitude * k) * math.cos(delta_longitude * k)
         alpha = math.acos(cos_value)
+        alpha *= sign(delta_longitude)
         return alpha
 
     def insert_node(self, new_node):
@@ -119,6 +136,10 @@ class RootNode(Node):
         # запоминаем отклонения от фиксированной точки
         new_node.start = self.calculate_degrees(new_node.start_longitude, new_node.start_latitude)
         new_node.end = self.calculate_degrees(new_node.end_longitude, new_node.end_latitude)
+        # Если путь диаметрально противоположный, то существует выбор движения
+        if new_node.end - new_node.start == 180:
+            other_node = Node(index=new_node.index, start=new_node.start, end=new_node.end, direction=False)
+            super(RootNode, self).insert_node(other_node)
         super(RootNode, self).insert_node(new_node)
 
 
